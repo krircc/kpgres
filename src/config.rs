@@ -14,7 +14,7 @@ use std::str;
 use std::str::FromStr;
 use std::time::Duration;
 use std::{error, fmt, iter, mem};
-use tokio::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
 
 /// Properties required of a session.
 #[derive(Debug, Copy, Clone, PartialEq)]

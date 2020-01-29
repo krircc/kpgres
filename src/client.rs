@@ -9,7 +9,7 @@ use std::future::Future;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
 
 use crate::cancel_query;
 use crate::codec::BackendMessages;

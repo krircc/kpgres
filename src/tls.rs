@@ -5,7 +5,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{fmt, io};
-use tokio::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
 
 pub(crate) mod private {
     pub struct ForcePrivateApi;

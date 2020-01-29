@@ -17,8 +17,8 @@ use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::codec::Framed;
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
+use kayrx::codec::Framed;
 
 pub struct StartupStream<S, T> {
     inner: Framed<MaybeTlsStream<S, T>, PostgresCodec>,

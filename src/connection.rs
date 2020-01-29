@@ -14,8 +14,8 @@ use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::codec::Framed;
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
+use kayrx::codec::Framed;
 
 pub enum RequestMessages {
     Single(FrontendMessage),

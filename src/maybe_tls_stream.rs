@@ -4,7 +4,7 @@ use std::io;
 use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
 
 pub enum MaybeTlsStream<S, T> {
     Raw(S),

@@ -37,7 +37,7 @@
 //! ```rust
 //! use futures::future;
 //! use std::future::Future;
-//! use tokio_postgres::{Client, Error, Statement};
+//! use kpgres::{Client, Error, Statement};
 //!
 //! async fn pipelined_prepare(
 //!     client: &Client,
@@ -49,12 +49,6 @@
 //!     ).await
 //! }
 //! ```
-//!
-//! # Runtime
-//!
-//! The client works with arbitrary `AsyncRead + AsyncWrite` streams. Convenience APIs are provided to handle the
-//! connection process, but these are gated by the `runtime` Cargo feature, which is enabled by default. If disabled,
-//! all dependence on the tokio runtime is removed.
 //!
 //! # SSL/TLS support
 //!

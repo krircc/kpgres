@@ -12,7 +12,7 @@ use crate::{
 use bytes::Buf;
 use futures::TryStreamExt;
 use postgres_protocol::message::frontend;
-use tokio::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
 
 /// A representation of a PostgreSQL database transaction.
 ///

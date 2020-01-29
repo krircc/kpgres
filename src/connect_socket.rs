@@ -3,9 +3,9 @@ use crate::{Error, Socket};
 use std::future::Future;
 use std::io;
 use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::net::UnixStream;
-use tokio::time;
+use kayrx::krse::net::TcpStream;
+use kayrx::krse::net::UnixStream;
+use kayrx::timer;
 
 pub(crate) async fn connect_socket(
     host: &Host,
@@ -40,7 +40,7 @@ where
     F: Future<Output = io::Result<T>>,
 {
     match timeout {
-        Some(timeout) => match time::timeout(timeout, connect).await {
+        Some(timeout) => match timer::timeout(timeout, connect).await {
             Ok(Ok(socket)) => Ok(socket),
             Ok(Err(e)) => Err(Error::connect(e)),
             Err(_) => Err(Error::connect(io::Error::new(

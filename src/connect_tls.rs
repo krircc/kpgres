@@ -5,7 +5,7 @@ use crate::tls::TlsConnect;
 use crate::Error;
 use bytes::BytesMut;
 use postgres_protocol::message::frontend;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use kayrx::krse::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub async fn connect_tls<S, T>(
     mut stream: S,

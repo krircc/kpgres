@@ -3,9 +3,9 @@ use std::io;
 use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
-use tokio::net::UnixStream;
+use kayrx::krse::io::{AsyncRead, AsyncWrite};
+use kayrx::krse::net::TcpStream;
+use kayrx::krse::net::UnixStream;
 
 #[derive(Debug)]
 enum Inner {
