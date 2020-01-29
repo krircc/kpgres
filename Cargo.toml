@@ -22,5 +22,3 @@ pin-project-lite = "0.1"
 phf = "0.8"
 postgres-protocol  = "0.5.0"
 postgres-types = "0.1.0" 
-tokio = { version = "0.2", features = ["io-util", "time", "net"] }
-tokio-util = { version = "0.2", features = ["codec"] }
