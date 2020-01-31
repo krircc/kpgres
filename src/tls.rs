@@ -33,13 +33,15 @@ impl ChannelBinding {
 }
 
 /// A constructor of `TlsConnect`ors.
+///
+/// Requires the `runtime` Cargo feature (enabled by default).
 pub trait MakeTlsConnect<S> {
     /// The stream type created by the `TlsConnect` implementation.
     type Stream: TlsStream + Unpin;
     /// The `TlsConnect` implementation created by this type.
     type TlsConnect: TlsConnect<S, Stream = Self::Stream>;
     /// The error type returned by the `TlsConnect` implementation.
-    type Error: Into<Box<dyn Error>>;
+    type Error: Into<Box<dyn Error + Sync + Send>>;
 
     /// Creates a new `TlsConnect`or.
     ///

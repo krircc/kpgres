@@ -350,7 +350,7 @@ enum Kind {
 
 struct ErrorInner {
     kind: Kind,
-    cause: Option<Box<dyn error::Error>>,
+    cause: Option<Box<dyn error::Error + Sync + Send>>,
 }
 
 /// An error communicating with the Postgres server.
@@ -399,7 +399,7 @@ impl error::Error for Error {
 
 impl Error {
     /// Consumes the error, returning its cause.
-    pub fn into_source(self) -> Option<Box<dyn error::Error>> {
+    pub fn into_source(self) -> Option<Box<dyn error::Error + Sync + Send>> {
         self.0.cause
     }
 
@@ -413,7 +413,7 @@ impl Error {
             .map(DbError::code)
     }
 
-    fn new(kind: Kind, cause: Option<Box<dyn error::Error>>) -> Error {
+    fn new(kind: Kind, cause: Option<Box<dyn error::Error + Sync + Send>>) -> Error {
         Error(Box::new(ErrorInner { kind, cause }))
     }
 
@@ -442,11 +442,11 @@ impl Error {
     }
 
     #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn to_sql(e: Box<dyn error::Error>, idx: usize) -> Error {
+    pub(crate) fn to_sql(e: Box<dyn error::Error + Sync + Send>, idx: usize) -> Error {
         Error::new(Kind::ToSql(idx), Some(e))
     }
 
-    pub(crate) fn from_sql(e: Box<dyn error::Error>, idx: usize) -> Error {
+    pub(crate) fn from_sql(e: Box<dyn error::Error + Sync + Send>, idx: usize) -> Error {
         Error::new(Kind::FromSql(idx), Some(e))
     }
 
@@ -454,7 +454,7 @@ impl Error {
         Error::new(Kind::Column(column), None)
     }
 
-    pub(crate) fn tls(e: Box<dyn error::Error>) -> Error {
+    pub(crate) fn tls(e: Box<dyn error::Error + Sync + Send>) -> Error {
         Error::new(Kind::Tls, Some(e))
     }
 
@@ -462,15 +462,15 @@ impl Error {
         Error::new(Kind::Io, Some(Box::new(e)))
     }
 
-    pub(crate) fn authentication(e: Box<dyn error::Error>) -> Error {
+    pub(crate) fn authentication(e: Box<dyn error::Error + Sync + Send>) -> Error {
         Error::new(Kind::Authentication, Some(e))
     }
 
-    pub(crate) fn config_parse(e: Box<dyn error::Error>) -> Error {
+    pub(crate) fn config_parse(e: Box<dyn error::Error + Sync + Send>) -> Error {
         Error::new(Kind::ConfigParse, Some(e))
     }
 
-    pub(crate) fn config(e: Box<dyn error::Error>) -> Error {
+    pub(crate) fn config(e: Box<dyn error::Error + Sync + Send>) -> Error {
         Error::new(Kind::Config, Some(e))
     }
 

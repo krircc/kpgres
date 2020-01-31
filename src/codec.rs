@@ -1,4 +1,3 @@
- 
 use bytes::{Buf, Bytes, BytesMut};
 use fallible_iterator::FallibleIterator;
 use postgres_protocol::message::backend;
@@ -8,7 +7,7 @@ use kayrx::codec::{Decoder, Encoder};
 
 pub enum FrontendMessage {
     Raw(Bytes),
-    CopyData(CopyData<Box<dyn Buf>>),
+    CopyData(CopyData<Box<dyn Buf + Send>>),
 }
 
 pub enum BackendMessage {

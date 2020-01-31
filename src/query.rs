@@ -4,38 +4,40 @@ use crate::connection::RequestMessages;
 use crate::types::{IsNull, ToSql};
 use crate::{Error, Portal, Row, Statement};
 use bytes::{Bytes, BytesMut};
-use futures::future::{err, Either};
-use futures::{ready, Future, Stream};
+use futures::{ready, Stream};
+use log::{debug, log_enabled, Level};
+use pin_project_lite::pin_project;
 use postgres_protocol::message::backend::Message;
 use postgres_protocol::message::frontend;
+use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-pub fn query(
+pub async fn query<'a, I>(
     client: &InnerClient,
-    statement: &Statement,
-    params: &[&(dyn ToSql)],
-) -> impl Future<Output = Result<RowStream, Error>> {
-    let buf = match encode(client, statement, params) {
-        Ok(buf) => buf,
-        Err(e) => return Either::Left(err(e)),
+    statement: Statement,
+    params: I,
+) -> Result<RowStream, Error>
+where
+    I: IntoIterator<Item = &'a dyn ToSql>,
+    I::IntoIter: ExactSizeIterator,
+{
+    let buf = if log_enabled!(Level::Debug) {
+        let params = params.into_iter().collect::<Vec<_>>();
+        debug!(
+            "executing statement {} with parameters: {:?}",
+            statement.name(),
+            params,
+        );
+        encode(client, &statement, params)?
+    } else {
+        encode(client, &statement, params)?
     };
-
-    let statement = statement.clone();
-    let mut responses = match client.send(RequestMessages::Single(FrontendMessage::Raw(buf))) {
-        Ok(responses) => responses,
-        Err(e) => return Either::Left(err(e)),
-    };
-
-    Either::Right(async move {
-        match responses.next().await? {
-            Message::BindComplete => {}
-            _ => return Err(Error::unexpected_message()),
-        }
-        Ok(RowStream {
-            statement,
-            responses,
-        })
+    let responses = start(client, buf).await?;
+    Ok(RowStream {
+        statement,
+        responses,
+        _p: PhantomPinned,
     })
 }
 
@@ -55,15 +57,30 @@ pub async fn query_portal(
     Ok(RowStream {
         statement: portal.statement().clone(),
         responses,
+        _p: PhantomPinned,
     })
 }
 
-pub async fn execute(
+pub async fn execute<'a, I>(
     client: &InnerClient,
     statement: Statement,
-    params: &[&(dyn ToSql)],
-) -> Result<u64, Error> {
-    let buf = encode(client, &statement, params)?;
+    params: I,
+) -> Result<u64, Error>
+where
+    I: IntoIterator<Item = &'a dyn ToSql>,
+    I::IntoIter: ExactSizeIterator,
+{
+    let buf = if log_enabled!(Level::Debug) {
+        let params = params.into_iter().collect::<Vec<_>>();
+        debug!(
+            "executing statement {} with parameters: {:?}",
+            statement.name(),
+            params,
+        );
+        encode(client, &statement, params)?
+    } else {
+        encode(client, &statement, params)?
+    };
     let mut responses = start(client, buf).await?;
 
     loop {
@@ -97,11 +114,11 @@ async fn start(client: &InnerClient, buf: Bytes) -> Result<Responses, Error> {
     Ok(responses)
 }
 
-pub fn encode(
-    client: &InnerClient,
-    statement: &Statement,
-    params: &[&(dyn ToSql)],
-) -> Result<Bytes, Error> {
+pub fn encode<'a, I>(client: &InnerClient, statement: &Statement, params: I) -> Result<Bytes, Error>
+where
+    I: IntoIterator<Item = &'a dyn ToSql>,
+    I::IntoIter: ExactSizeIterator,
+{
     client.with_buf(|buf| {
         encode_bind(statement, params, "", buf)?;
         frontend::execute("", 0, buf).map_err(Error::encode)?;
@@ -110,13 +127,24 @@ pub fn encode(
     })
 }
 
-pub fn encode_bind(
+pub fn encode_bind<'a, I>(
     statement: &Statement,
-    params: &[&(dyn ToSql)],
+    params: I,
     portal: &str,
     buf: &mut BytesMut,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    I: IntoIterator<Item = &'a dyn ToSql>,
+    I::IntoIter: ExactSizeIterator,
+{
     let params = params.into_iter();
+
+    assert!(
+        statement.params().len() == params.len(),
+        "expected {} parameters but got {}",
+        statement.params().len(),
+        params.len()
+    );
 
     let mut error_idx = 0;
     let r = frontend::bind(
@@ -142,19 +170,24 @@ pub fn encode_bind(
     }
 }
 
-/// A stream of table rows.
-pub struct RowStream {
-    statement: Statement,
-    responses: Responses,
+pin_project! {
+    /// A stream of table rows.
+    pub struct RowStream {
+        statement: Statement,
+        responses: Responses,
+        #[pin]
+        _p: PhantomPinned,
+    }
 }
 
 impl Stream for RowStream {
     type Item = Result<Row, Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match ready!(self.responses.poll_next(cx)?) {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        match ready!(this.responses.poll_next(cx)?) {
             Message::DataRow(body) => {
-                Poll::Ready(Some(Ok(Row::new(self.statement.clone(), body)?)))
+                Poll::Ready(Some(Ok(Row::new(this.statement.clone(), body)?)))
             }
             Message::EmptyQueryResponse
             | Message::CommandComplete(_)

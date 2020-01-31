@@ -3,7 +3,7 @@ use crate::codec::FrontendMessage;
 use crate::connection::RequestMessages;
 use crate::types::Type;
 use postgres_protocol::message::frontend;
-use std::rc::{Rc, Weak};
+use std::sync::{Arc, Weak};
 
 struct StatementInner {
     client: Weak<InnerClient>,
@@ -29,17 +29,17 @@ impl Drop for StatementInner {
 ///
 /// Prepared statements can only be used with the connection that created them.
 #[derive(Clone)]
-pub struct Statement(Rc<StatementInner>);
+pub struct Statement(Arc<StatementInner>);
 
 impl Statement {
     pub(crate) fn new(
-        inner: &Rc<InnerClient>,
+        inner: &Arc<InnerClient>,
         name: String,
         params: Vec<Type>,
         columns: Vec<Column>,
     ) -> Statement {
-        Statement(Rc::new(StatementInner {
-            client: Rc::downgrade(inner),
+        Statement(Arc::new(StatementInner {
+            client: Arc::downgrade(inner),
             name,
             params,
             columns,

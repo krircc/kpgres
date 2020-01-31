@@ -1,5 +1,37 @@
 //! An asynchronous, pipelined, PostgreSQL client.
 //!
+//! # Example
+//!
+//! ```no_run
+//! use kpgres::{NoTls, Error};
+//!
+//! #[kayrx::main] // By default, kpgres uses the kayrx crate as its runtime.
+//! async fn main() -> Result<(), Error> {
+//!     // Connect to the database.
+//!     let (client, connection) =
+//!         kpgres::connect("host=localhost user=postgres", NoTls).await?;
+//!
+//!     // The connection object performs the actual communication with the database,
+//!     // so spawn it off to run on its own.
+//!     kayrx::spawn(async move {
+//!         if let Err(e) = connection.await {
+//!             eprintln!("connection error: {}", e);
+//!         }
+//!     });
+//!
+//!     // Now we can execute a simple statement that just returns its parameter.
+//!     let rows = client
+//!         .query("SELECT $1::TEXT", &[&"hello world"])
+//!         .await?;
+//!
+//!     // And then check that we got back the same string we sent over.
+//!     let value: &str = rows[0].get(0);
+//!     assert_eq!(value, "hello world");
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
 //! # Behavior
 //!
 //! Calling a method like `Client::query` on its own does nothing. The associated request is not sent to the database
@@ -50,15 +82,22 @@
 //! }
 //! ```
 //!
+//! # Runtime
+//!
+//! The client works with arbitrary `AsyncRead + AsyncWrite` streams. Convenience APIs are provided to handle the
+//! connection process, but these are gated by the `runtime` Cargo feature, which is enabled by default. If disabled,
+//! all dependence on the kayrx runtime is removed.
+//!
 //! # SSL/TLS support
 //!
 //! TLS support is implemented via external libraries. `Client::connect` and `Config::connect` take a TLS implementation
 //! as an argument. The `NoTls` type in this crate can be used when TLS is not required. Otherwise, the
 //! `postgres-openssl` and `postgres-native-tls` crates provide implementations backed by the `openssl` and `native-tls`
 //! crates, respectively.
-#![doc(html_root_url = "https://docs.rs/kpgres")]
+#![doc(html_root_url = "https://docs.rs/kpgres/0.6")]
 #![warn(rust_2018_idioms, clippy::all, missing_docs)]
 
+pub use crate::cancel_token::CancelToken;
 pub use crate::client::Client;
 pub use crate::config::Config;
 pub use crate::connection::Connection;
@@ -66,6 +105,7 @@ pub use crate::copy_in::CopyInSink;
 pub use crate::copy_out::CopyOutStream;
 use crate::error::DbError;
 pub use crate::error::Error;
+pub use crate::generic_client::GenericClient;
 pub use crate::portal::Portal;
 pub use crate::query::RowStream;
 pub use crate::row::{Row, SimpleQueryRow};
@@ -76,12 +116,14 @@ use crate::tls::MakeTlsConnect;
 pub use crate::tls::NoTls;
 pub use crate::to_statement::ToStatement;
 pub use crate::transaction::Transaction;
+pub use crate::transaction_builder::{IsolationLevel, TransactionBuilder};
 use crate::types::ToSql;
 
 pub mod binary_copy;
 mod bind;
 mod cancel_query;
 mod cancel_query_raw;
+mod cancel_token;
 mod client;
 mod codec;
 pub mod config;
@@ -93,6 +135,7 @@ mod connection;
 mod copy_in;
 mod copy_out;
 pub mod error;
+mod generic_client;
 mod maybe_tls_stream;
 mod portal;
 mod prepare;
@@ -104,13 +147,12 @@ mod statement;
 pub mod tls;
 mod to_statement;
 mod transaction;
+mod transaction_builder;
 pub mod types;
 
 /// A convenience function which parses a connection string and connects to the database.
 ///
 /// See the documentation for [`Config`] for details on the connection string format.
-///
-/// Requires the `runtime` Cargo feature (enabled by default).
 ///
 /// [`Config`]: config/struct.Config.html
 pub async fn connect<T>(
@@ -174,6 +216,8 @@ pub enum SimpleQueryMessage {
     CommandComplete(u64),
 }
 
-fn slice_iter<'a>(s: &'a [&'a (dyn ToSql + Sync)]) -> impl ExactSizeIterator<Item = &'a dyn ToSql> {
+fn slice_iter<'a>(
+    s: &'a [&'a (dyn ToSql + Sync)],
+) -> impl ExactSizeIterator<Item = &'a dyn ToSql> + 'a {
     s.iter().map(|s| *s as _)
 }
